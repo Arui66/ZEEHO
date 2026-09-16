@@ -2668,7 +2668,7 @@ function __APP_HTML(){ return __appDecodeUtf8(__APP_HTML_B64); }
     sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: accOk, count: list.length, configOk: cfgOk }));
     return;
   }
-1
+
   // 配置页
   if (path === "/config") {
     const cfg = getConfig();
