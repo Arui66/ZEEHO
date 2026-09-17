@@ -79,7 +79,7 @@ https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/modules/zeeho.s
 把以下链接作为 **Loon 插件** 直接添加：
 
 ```
-hhttps://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho_box_enhanced.js
+https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho_box_enhanced.js
 ```
 
 ### 🍏 Quantumult X（订阅一键导入）
