@@ -414,7 +414,14 @@ async function runSigninForAccount(acc, cfg) {
         const blindRes = await httpGet(`https://h5.zeehoev.com/cfmotoservermine/signin/supplementPrize?supplementDate=${today}`, { ...baseHeaders, ...getSign("h5", { supplementDate: today }, '', cfg) });
         if (blindRes?.code == "10000") {
           result.blindBoxScore = Number(blindRes?.data?.integral || blindRes?.data?.integralScore || 0);
-          result.steps.push(`盲盒获得 +${result.blindBoxScore} (${blindRes?.data?.prizesName || "积分"})`);
+          // 盲盒日志：≥10分显示获得积分，低于10分显示距盲盒剩余天数（避免显示"盲盒获得 +0"）
+          if (result.blindBoxScore >= 10) {
+            result.steps.push(`盲盒获得 +${result.blindBoxScore} (${blindRes?.data?.prizesName || "积分"})`);
+          } else {
+            const _bd = result.continueDays === 0 ? 0 : ((result.continueDays - 1) % 30) + 1;
+            const _br = 30 - _bd;
+            result.steps.push(`距盲盒剩余 ${_br} 天`);
+          }
         }
       } else {
         result.steps.push(`盲盒未解锁(${signCount}/30)`);
@@ -2558,7 +2565,12 @@ function __APP_HTML(){ return __appDecodeUtf8(__APP_HTML_B64); }
       if (r.success && acc.barkKey && String(acc.barkKey).trim()) {
         try {
           const _bt = "极核签到成功 · " + (r.userName || "");
-          const _bb = "今日获得 " + r.totalGain + " 分（签到" + r.signinScore + " / 盲盒" + r.blindBoxScore + " / 互动" + r.interactScore + "），连签 " + r.continueDays + " 天";
+          // 盲盒文本：≥10分显示获得积分，低于10分显示距盲盒剩余天数（避免"盲盒0"）
+          const _bScore = r.blindBoxScore || 0;
+          const _bDay = (r.continueDays || 0) === 0 ? 0 : (((r.continueDays || 0) - 1) % 30) + 1;
+          const _bRemain = 30 - _bDay;
+          const _bbTxt = _bScore >= 10 ? "盲盒" + _bScore : "距盲盒" + _bRemain + "天";
+          const _bb = "今日获得 " + r.totalGain + " 分（签到" + r.signinScore + " / " + _bbTxt + " / 互动" + r.interactScore + "），连签 " + r.continueDays + " 天";
           await barkPush(acc.barkKey, _bt, _bb);
         } catch(e) {}
       }
