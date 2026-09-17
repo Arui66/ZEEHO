@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/mlink798/ZEEHO/main/ZEEHO.png" width="120" alt="ZEEHO" />
 
-# 极核 ZEEHO · 自动签到 & 增强面板
+# 极核 ZEEHO · 自动签到 & 增强面板·宁德福安鹤祥店
 
 > 极核电动车 ZEEHO 的 **Loon / Quantumult X / Surge / Shadowrocket** 脚本
 > 自动签到 · 社区积分任务 · 盲盒抽奖 · 车辆状态看板 · 远程控车
