@@ -114,6 +114,10 @@ async function main() {
         // 签到积分：首次签到用signin返回值，已签到场景用签到记录里的prize
         const signScore = (typeof signResult === 'number' && signResult > 0) ? signResult : (prize || 0);
         const blindScore = integralScore || 0;
+        // 盲盒日志文本：≥10分显示获得积分，低于10分显示距盲盒剩余天数（避免显示"盲盒 +0"）
+        const _bDay = count === 0 ? 0 : ((count - 1) % 30) + 1;
+        const _bRemain = 30 - _bDay;
+        const blindLogText = blindScore >= 10 ? `盲盒 +${blindScore}` : `距盲盒 ${_bRemain}天`;
         const gain = signScore + blindScore + interactGain;
         // 输出今日得分明细（所有任务完成后的准确总分）
         $.log(`✅ 今日获得: 签到${signScore} + 盲盒${blindScore} + 互动${interactGain} = 共${gain}分`);
@@ -137,10 +141,10 @@ async function main() {
           interactScore: interactGain,
           continueDays: count,
           error: null,
-          steps: [`签到 +${signScore}`, `盲盒 +${blindScore}`, `互动 +${interactGain}`, `连签 ${count}天`]
+          steps: [`签到 +${signScore}`, blindLogText, `互动 +${interactGain}`, `连签 ${count}天`]
         });
         // 单账号独立 Bark：签到成功才推送（Key 留空则跳过）
-        await barkNotify(user.barkKey, `极核签到成功 · ${user.userName}`, `今日获得 ${gain} 分（签到${signScore}/盲盒${blindScore}/互动${interactGain}），连签${count}天`);
+        await barkNotify(user.barkKey, `极核签到成功 · ${user.userName}`, `今日获得 ${gain} 分（签到${signScore}/${blindLogText}/互动${interactGain}），连签${count}天`);
         $.successCount++;
       } else {
         // ck 失效
