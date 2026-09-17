@@ -44,6 +44,14 @@
 
 ---
 
+## 🖼️ 界面预览
+
+![极核ZEEHO 主面板](screenshots/dashboard.png)
+
+![极核ZEEHO 配置页](screenshots/config.png)
+
+---
+
 ## ⚡ 一键导入
 
 无需手动复制大段配置，按你的工具任选其一即可（**推荐 BoxJS 或 Surge 模块**）。
