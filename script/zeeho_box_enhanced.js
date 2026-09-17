@@ -2185,15 +2185,17 @@ function saveAccounts() {
 
 // ========== 响应辅助（兼容 QX / Loon / Surge） ==========
 function sendResp(status, headers, body) {
-  const isSurge = typeof $task !== "undefined";   // Surge 用 $task.fetch
-  const isQX = typeof $prefs !== "undefined";      // QX 用 $prefs 持久化
-  if (isSurge) {
+  const isQX = typeof $prefs !== "undefined";              // QX 有 $prefs（也定义了 $task）
+  const isSurge = typeof $task !== "undefined" && typeof $prefs === "undefined"; // Surge：$task 有、$prefs 无
+  if (isQX) {
+    // QX：必须用 response 包装，status 用字符串
+    $done({ response: { status: "HTTP/1.1 " + status + " OK", headers: headers, body: body } });
+  } else if (isSurge) {
     // Surge 格式：顶层 status/headers/body
     $done({ status: status, headers: headers, body: body });
   } else {
-    // QX / Loon 格式：response 包装；QX 下 status 用字符串更标准
-    const st = isQX ? ("HTTP/1.1 " + status + " OK") : status;
-    $done({ response: { status: st, headers: headers, body: body } });
+    // Loon：response 包装，status 用数字
+    $done({ response: { status: status, headers: headers, body: body } });
   }
 }
 // ========== 主入口：重写路由 ==========
