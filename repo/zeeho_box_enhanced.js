@@ -1,16 +1,16 @@
 /*
-#!name=极核 ZEEHO 签到面板 V2.12.0
+#!name=极核 ZEEHO 签到面板 V2.13.0
 #!desc=极核ZEEHO多账号签到面板 + 网页配置，访问 http://zeeho.box
 #!author=lucky
 #!homepage=https://github.com/mlink798/ZEEHO
-#!version=2.12.0
+#!version=2.13.0
 
 图标: https://cdn.jsdelivr.net/gh/mlink798/ZEEHO@main/ZEEHO.png
 
 [Script]
 # ========== 极核 ZEEHO ==========
 # 面板 + 极核API自动捕获appId/appSecret
-http-request ^https?://(zeeho\.box|.*zeehoev\.com)/.* script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho_box_enhanced.js, requires-body=true, timeout=60, tag=极核面板V2.12.0
+http-request ^https?://(zeeho\.box|.*zeehoev\.com)/.* script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho_box_enhanced.js, requires-body=true, timeout=60, tag=极核面板V2.13.0
 
 # 极核Token自动捕获（打开极核App-我的页面）
 http-response ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho.js, requires-body=true, timeout=30, tag=极核抓Token
@@ -37,13 +37,13 @@ hostname = tapi.zeehoev.com, h5.zeehoev.com, zeeho.box
 const $ = new Env("极核看板增强版");
 
 // ========== 极核 ZEEHO 签到面板脚本 ==========
-// 版本: v2.12.0
-// 更新日期: 2026-09-16
+// 版本: v2.13.0
+// 更新日期: 2026-09-18
 // 作者: @lucky
 // 主页: https://github.com/mlink798/ZEEHO
 // ============================================
-const SCRIPT_VERSION = "v2.12.0";
-console.log(`🚀 [极核面板] 脚本版本: ${SCRIPT_VERSION} (2026-09-16 v2.12.0 ①面板移除「立即签到」按钮与顶部「累计连签」显示；②新增一键备份/恢复账号与面板配置；③账号数据并发拉取+首屏去重，看板更流畅；④卡片「连签天数」与面板设置全部原功能保留)`);
+const SCRIPT_VERSION = "v2.13.0";
+console.log(`🚀 [极核面板] 脚本版本: ${SCRIPT_VERSION} (2026-09-18 v2.13.0 ①新增多车切换：账号绑定多车可切换查看/控车；②新增多车数据同屏对比；③新增皮肤/主题切换：深蓝/浅色/翡翠/紫罗兰/琥珀 5 套主题)`);
 
 // 面板入口域名：Loon 用虚拟域名 zeeho.box（Loon 可虚拟劫持不存在的域名），
 // QX 必须用真实可解析域名（默认 www.example.com，IANA 保留域名保证可解析）。
