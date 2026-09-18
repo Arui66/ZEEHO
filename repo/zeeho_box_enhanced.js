@@ -10,13 +10,13 @@
 [Script]
 # ========== 极核 ZEEHO ==========
 # 面板 + 极核API自动捕获appId/appSecret
-http-request ^https?://(zeeho\.box|.*zeehoev\.com)/.* script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho_box_enhanced.js, requires-body=true, timeout=60, tag=极核面板V2.13.0
+http-request ^https?://(zeeho\.box|.*zeehoev\.com)/.* script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/repo/zeeho_box_enhanced.js, requires-body=true, timeout=60, tag=极核面板V2.13.0
 
 # 极核Token自动捕获（打开极核App-我的页面）
-http-response ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho.js, requires-body=true, timeout=30, tag=极核抓Token
+http-response ^https:\/\/tapi\.zeehoev\.com\/v1\.0\/mine\/cfmotoservermine\/setting script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/repo/zeeho.js, requires-body=true, timeout=30, tag=极核抓Token
 
 # 极核每日签到（每天7点）
-cron "0 7 * * *" script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/zeeho.js, timeout=120, tag=极核每日签到
+cron "0 7 * * *" script-path=https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/repo/zeeho.js, timeout=120, tag=极核每日签到
 
 
 [MITM]
@@ -2176,7 +2176,13 @@ function saveAccounts() {
 // ========== 响应辅助（兼容 QX / Loon / Surge） ==========
 function sendResp(status, headers, body) {
   // Loon 专用：$done 使用 response 包装
-  $done({ response: { status: status, headers: headers, body: body } });
+  // 强制 no-cache：面板 HTML 每次访问都拉取最新版本，避免浏览器缓存旧界面导致新功能不生效
+  const h = Object.assign({}, headers || {}, {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0"
+  });
+  $done({ response: { status: status, headers: h, body: body } });
 }
 // ========== 主入口：重写路由 ==========
 // ========== 整合版：极核 ZEEHO LITE 轻应用界面（base64 内嵌） ==========
