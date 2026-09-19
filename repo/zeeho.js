@@ -192,7 +192,8 @@ class UserInfo {
     this.token = "Bearer " + String(rawToken || "").replace(/^[bB]earer\s+/i, "").trim();
     this.userId = String(user.userId || "").trim();
     this.userName = user.userName || `账号${this.index}`;
-    this.userAgent = user.userAgent || "ZEEHO/5.0 (iPhone; iOS 17.0; Scale/3.00)";
+    // 2026-09-19 HAR 确认：User-Agent 必须与真实 App 一致，否则可能被风控
+    this.userAgent = user.userAgent || "MOBILE|iOS|16.1.1|ZEEHO_APP|3.0.4|iPhone|iPhone 14 Pro|1179*2556|DC0C4906-A4A8-4866-9432-B31E1E252D53|WWAN|iOS";
     // 每账号独立 Bark Key（面板配置页保存，经 zeeho_data 同步过来）
     this.barkKey = cleanBarkKey(user.barkKey);
     this.ckStatus = true;
@@ -205,7 +206,8 @@ class UserInfo {
       "Authorization": this.token,
       "User-Agent": this.userAgent,
       "user_id": this.userId,
-      "interfaceversion": "2"
+      "interfaceversion": "2",
+      "x-app-info": this.userAgent
     }
     this.getRandomTime = () => randomInt(1e3, 3e3);
     this.fetch = async (o) => {
@@ -393,14 +395,17 @@ class UserInfo {
   // 创建动态
   async createArticle() {
     try {
+      const postBody = {
+        postSubInfo: { topicList: [] },
+        topicid: "",
+        postcontent: "开心的一天"
+      };
       const opts = {
         url: `https://tapi.zeehoev.com/v1.0/social/cfmotoserversocial/commonArticle`,
         type: "post",
         dataType: "json",
-        headers: Object.assign({}, this.headers, getSign('app')),
-        body: {
-          postcontent: "开心的一天"
-        }
+        headers: Object.assign({}, this.headers, getSign('app', {}, postBody)),
+        body: postBody
       }
       let res = await this.fetch(opts);
       if (res?.code == '10000') {
@@ -657,18 +662,18 @@ async function getCookie() {
 }
 function getSign(type, params = {}, body = '') {
   const appConfig = {
-    // 2026-08-28 HAR 确认：H5 端 appId/appSecret 已轮换（旧 azRnLvxl/76d9... 会被拒绝 → 430/permit error）
+    // 2026-09-19 HAR 确认：H5 端 appId/appSecret 已轮换（旧 azRnLvxl/76d9... 会被拒绝 → 430/permit error）
     appId: type === "h5" ? "Sw5F9uJi" : "S7qPWPU1",
     appSecret: type === "h5" ? "46870a8f678a09109468f5b0168818b91c292845" : "c5e0da7f4da28df805694ec3dd1fc6792e9df99d"
   }
   const query = Object.keys(params).filter(k => params[k] !== undefined && params[k] !== null).sort().map(key => `${key}=${params[key]}`).join('&')
   const timestamp = new Date().getTime()
-  const nonce = getUuid()
+  const nonce = type === "h5" ? getUuid() : `${timestamp}${getRandomChars(20)}`
   const param = `appId=${appConfig.appId}&nonce=${nonce}&timestamp=${timestamp}`
   const bodyStr = body ? (typeof body === 'string' ? body : JSON.stringify(body)) : ''
   const signature = type === "h5" ? `${query}${param}${appConfig.appSecret}` : `${bodyStr}${param}${appConfig.appSecret}`
   const sign = md5(sha1(signature), 32).toString()
-  return {
+  const headers = {
     'cfmoto-x-param': param,
     'cfmoto-x-sign': sign,
     'cfmoto-x-sign-type': '0',
@@ -676,6 +681,11 @@ function getSign(type, params = {}, body = '') {
     'nonce': nonce,
     'signature': sign
   }
+  // App 端必须带 appid 头（HAR 确认）
+  if (type === 'app') {
+    headers['appid'] = appConfig.appId;
+  }
+  return headers;
 }
 //-------------------------- 辅助函数区域 -----------------------------------
 //请求二次封装
@@ -710,8 +720,8 @@ async function Request(o) {
       }
     }
 
-    // Env类$.http只有get/post入口，post方法会读取request.method转发给$httpClient
-    const httpEntry = method === 'get' ? 'get' : 'post';
+    // 2026-09-19 修复：正确选择 HTTP 方法，原来所有非 GET 都用 POST 会导致 PUT/DELETE 接口失败
+    const httpEntry = method;
     const request = { ...o, url, method: method, headers, params: undefined, timeout: timeout };
     if (method !== 'get') request.body = body;
 
