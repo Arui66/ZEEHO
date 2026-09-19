@@ -700,11 +700,11 @@ function vehicleCheckRes(res, okMsg) {
   }
   return { ok: false, message: (res && (res.message || res.msg)) || (res && res.error) || "指令下发失败", code: res && res.code };
 }
-async function vehicleControl(acc, action, cfg) {
+async function vehicleControl(acc, action, cfg, customVin) {
   try {
     const c = cfg || getConfig();
-    // 1) 取 VIN：优先账号已保存，否则实时查车辆列表
-    let vin = acc.vinNo || "";
+    // 1) 取 VIN：优先使用传入的 customVin（切换车辆后前端传过来的），其次账号已保存，否则实时查车辆列表取第一台
+    let vin = customVin || acc.vinNo || "";
     if (!vin) {
       const list = await fetchVehicleList(acc, c);
       if (!list || !list.length) return { ok: false, message: "未获取到绑定车辆(VIN)，请确认账号已绑定车辆" };
@@ -1498,11 +1498,11 @@ function renderDashboard(accounts, data, cfg, updateTime) {
           <button type="button" class="map-btn ${coordOk ? "" : "map-btn-disabled"}" ${coordOk ? `onclick="event.stopPropagation();openMap(${idx})"` : "disabled title=\"暂无有效GPS坐标\""}>🗺️ 地图</button>
         </div>` : ""}
         <div class="vehicle-ctrl" onclick="event.stopPropagation()">
-          <button class="vctrl-btn" onclick="vehicleCtrl('${a.userId}','find',this)">🔔 寻车</button>
-          <button class="vctrl-btn" onclick="vehicleCtrl('${a.userId}','loudFind',this)">📣 鸣笛</button>
-          <button class="vctrl-btn" onclick="vehicleCtrl('${a.userId}','cushion',this)">💺 坐垫</button>
-          <button class="vctrl-btn vctrl-unlock" onclick="vehicleCtrl('${a.userId}','unlock',this)">🔓 开锁</button>
-          <button class="vctrl-btn vctrl-lock" onclick="vehicleCtrl('${a.userId}','lock',this)">🔒 关锁</button>
+          <button class="vctrl-btn" onclick="vehicleCtrl('${a.userId}','find',this,'${v.vinNo || ''}')">🔔 寻车</button>
+          <button class="vctrl-btn" onclick="vehicleCtrl('${a.userId}','loudFind',this,'${v.vinNo || ''}')">📣 鸣笛</button>
+          <button class="vctrl-btn" onclick="vehicleCtrl('${a.userId}','cushion',this,'${v.vinNo || ''}')">💺 坐垫</button>
+          <button class="vctrl-btn vctrl-unlock" onclick="vehicleCtrl('${a.userId}','unlock',this,'${v.vinNo || ''}')">🔓 开锁</button>
+          <button class="vctrl-btn vctrl-lock" onclick="vehicleCtrl('${a.userId}','lock',this,'${v.vinNo || ''}')">🔒 关锁</button>
         </div>
       </div>` : ""}
     </div>`;
@@ -1908,14 +1908,15 @@ function toggleDetailVin(idx, btn){
   else { el.textContent=maskVin(v.vinNo); btn.textContent='显示'; }
 }
 // 车辆远程控制：寻车/鸣笛闪灯/开坐垫/云端开关锁（均真实控车，需二次确认）
-function vehicleCtrl(userId, action, btn) {
+// 2026-09-20 修复：增加 vin 参数，切换车辆后控车操作对应选中车辆
+function vehicleCtrl(userId, action, btn, vin) {
   var names = { find:'短按寻车（车辆闪灯）', loudFind:'鸣笛闪灯（高声寻车）', cushion:'打开坐垫（坐垫会弹起）', unlock:'云端开锁', lock:'云端关锁' };
   var name = names[action] || action;
   if (!confirm('确定执行【' + name + '】吗？\\n该指令会通过 4G 网络真实控制你的车辆！')) return;
   var old = btn.textContent;
   btn.disabled = true; btn.textContent = '···';
   showToast('指令下发中…');
-  fetch('/api/vehicle-control', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:userId, action:action }) })
+  fetch('/api/vehicle-control', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:userId, action:action, vin: vin || '' }) })
     .then(function(r){ return r.json(); })
     .then(function(d){
       btn.disabled = false; btn.textContent = old;
@@ -2606,7 +2607,9 @@ function __APP_HTML(){ return __appDecodeUtf8(__APP_HTML_B64); }
       sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: false, message: "非法操作类型" }));
       return;
     }
-    const r = await vehicleControl(acc, action, cfg);
+    // 2026-09-20 修复：支持传入指定 VIN，切换车辆后控车操作对应选中车辆而非默认第一台
+    const customVin = String(body.vin || "").trim();
+    const r = await vehicleControl(acc, action, cfg, customVin);
     console.log(`[车辆控制] ${acc.userName} ${VEHICLE_ACTION_TEXT[action]} => ${r.ok ? "成功" : "失败:" + r.message}`);
     // 控车操作写入运行日志（type=vehicle，日志页可按“控车”筛选）
     try {
