@@ -36,3 +36,4 @@
 - 使用第三方脚本存在账号风控风险，请自行评估
 - LOON插件订阅：https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/repo/zeeho_box_enhanced.js
 - BOXJS订阅：https://raw.githubusercontent.com/mlink798/ZEEHO/refs/heads/main/script/boxjs/zeeho.boxjs.json
+- 爱发电赞助：https://afdian.com/a/lucky798
