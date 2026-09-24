@@ -262,6 +262,26 @@ function getSign(type, params = {}, body = '', cfg) {
   };
 }
 
+// H5 端含 body 签名：极核 loginByPhone 等接口必须把请求体纳入签名，
+// 默认 getSign('h5') 不含 body，直接用于登录会返回 permit error。
+function h5SignWithBody(body, cfg) {
+  const c = cfg || getConfig();
+  const ac = c.h5 || c.app;
+  const timestamp = new Date().getTime();
+  const nonce = getUuid();
+  const param = `appId=${ac.appId}&nonce=${nonce}&timestamp=${timestamp}`;
+  const bodyStr = typeof body === "string" ? body : JSON.stringify(body);
+  const sign = md5(sha1(bodyStr + param + ac.appSecret), 32).toString();
+  return {
+    'cfmoto-x-param': param,
+    'cfmoto-x-sign': sign,
+    'cfmoto-x-sign-type': '0',
+    'timestamp': String(timestamp),
+    'nonce': nonce,
+    'appId': ac.appId
+  };
+}
+
 // ========== HTTP 请求 ==========
 function httpGet(url, headers) {
   return new Promise((resolve) => {
@@ -2065,6 +2085,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
     </div>
   </div>
 
+  <!-- 手机号登录 -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title"><span class="bar" style="background:#6366F1"></span>手机号登录（免抓包）</div>
+    </div>
+    <div class="panel-body">
+      <div class="form-grid">
+        <div class="form-item"><label>手机号（极核 App 绑定号码）</label><input type="tel" id="pl_phone" placeholder="11 位手机号" style="font-family:monospace;font-size:13px"></div>
+        <div class="form-item"><label>短信验证码</label><input type="text" id="pl_code" placeholder="6 位验证码" style="font-family:monospace;font-size:13px"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-sm" onclick="sendSmsCode()" id="pl_send_btn">获取验证码</button>
+        <button class="btn btn-primary" onclick="phoneLogin()" id="pl_login_btn">登录并添加账号</button>
+      </div>
+      <div class="hint">用手机号 + 短信验证码登录，自动获取 Token 与用户ID并加入账号列表，全程无需抓包。登录成功后会自动写入并刷新页面。</div>
+    </div>
+  </div>
+
   <!-- 账号管理 -->
   <div class="panel">
     <div class="panel-head">
@@ -2160,6 +2198,51 @@ function refreshUserId(idx) {
     })
     .catch(function(){ showToast('获取失败', 'err'); })
     .finally(function(){ btn.textContent = '获取ID'; btn.disabled = false; });
+}
+function sendSmsCode() {
+  var phoneEl = document.getElementById('pl_phone');
+  var btn = document.getElementById('pl_send_btn');
+  var phone = (phoneEl ? phoneEl.value : '').trim();
+  if (!/^1\d{10}$/.test(phone)) { showToast('请输入正确的11位手机号', 'err'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '发送中...'; }
+  fetch('/api/send-code', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone: phone}) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) { showToast(d.message || '验证码已发送'); }
+      else { showToast(d.message || '发送失败', 'err'); }
+      var t = 60;
+      if (btn) {
+        btn.textContent = t + 's 后重试';
+        var iv = setInterval(function(){
+          t--;
+          if (t <= 0) { clearInterval(iv); btn.textContent = '获取验证码'; btn.disabled = false; }
+          else { btn.textContent = t + 's 后重试'; }
+        }, 1000);
+      }
+    })
+    .catch(function(){ showToast('发送失败，请检查网络', 'err'); if (btn) { btn.disabled = false; btn.textContent = '获取验证码'; } });
+}
+function phoneLogin() {
+  var phoneEl = document.getElementById('pl_phone');
+  var codeEl = document.getElementById('pl_code');
+  var btn = document.getElementById('pl_login_btn');
+  var phone = (phoneEl ? phoneEl.value : '').trim();
+  var code = (codeEl ? codeEl.value : '').trim();
+  if (!/^1\d{10}$/.test(phone)) { showToast('请输入正确的11位手机号', 'err'); return; }
+  if (!code) { showToast('请输入短信验证码', 'err'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '登录中...'; }
+  fetch('/api/phone-login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone: phone, code: code}) })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.ok) {
+        showToast(d.message || '登录成功，已添加账号');
+        setTimeout(function(){ location.reload(); }, 900);
+      } else {
+        showToast(d.message || '登录失败', 'err');
+      }
+    })
+    .catch(function(){ showToast('登录失败，请检查网络', 'err'); })
+    .finally(function(){ if (btn) { btn.disabled = false; btn.textContent = '登录并添加账号'; } });
 }
 function saveAccounts() {
   var rows = document.querySelectorAll('#accList .acc-row');
@@ -2428,6 +2511,90 @@ function __APP_HTML(){ return __appDecodeUtf8(__APP_HTML_B64); }
   }
 
   // API: 快速保存（客户端通过 zeeho.box 链接直接保存，GET请求，参数在query里）
+  // API: 发送短信验证码（手机号登录，免抓包）
+  if (method === "POST" && path === "/api/send-code") {
+    const body = parseBody($request);
+    const phone = String(body.phone || "").trim();
+    if (!/^1\d{10}$/.test(phone)) {
+      sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: false, message: "手机号格式不正确（应为11位）" }));
+      return;
+    }
+    const cfg = getConfig();
+    const signH = getSign("h5", {}, '', cfg);
+    const res = await httpGet(`https://h5.zeehoev.com/cfmotoservermine/authCode/${encodeURIComponent(phone)}`, {
+      "Content-Type": "application/json;charset=UTF-8",
+      ...signH
+    });
+    if (res && String(res.code) === "10000") {
+      sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: true, message: "验证码已发送，请查收短信" }));
+    } else {
+      sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: false, message: "发送失败: " + ((res && (res.message || res.msg)) || "未知错误") }));
+    }
+    return;
+  }
+
+  // API: 手机号 + 短信验证码登录（免抓包），成功后自动写入账号列表
+  if (method === "POST" && path === "/api/phone-login") {
+    const body = parseBody($request);
+    const phone = String(body.phone || "").trim();
+    const code = String(body.code || "").trim();
+    if (!/^1\d{10}$/.test(phone)) {
+      sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: false, message: "手机号格式不正确（应为11位）" }));
+      return;
+    }
+    if (!code) {
+      sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: false, message: "请填写短信验证码" }));
+      return;
+    }
+    const cfg = getConfig();
+    const payload = { phone: phone, authCode: code };
+    const signH = h5SignWithBody(payload, cfg);
+    const loginRes = await httpPost(
+      "https://h5.zeehoev.com/cfmotoservermine/user/loginByPhone",
+      { "Content-Type": "application/json;charset=UTF-8", ...signH },
+      payload,
+      20000
+    );
+    const tokenInfo = loginRes && loginRes.data && loginRes.data.tokenInfo;
+    const accessToken = tokenInfo && String(tokenInfo.access_token || "");
+    if (!loginRes || String(loginRes.code) !== "10000" || !accessToken) {
+      sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: false, message: "登录失败: " + ((loginRes && (loginRes.message || loginRes.msg)) || "验证码有误或已过期") }));
+      return;
+    }
+    // 用登录 Token 自动获取用户ID与昵称（H5 baseInfo，与「获取ID」一致）
+    let userId = "", userName = "";
+    try {
+      const signH0 = getSign("h5", { server_name: "SMART" }, '', cfg);
+      const infoRes = await httpGet("https://h5.zeehoev.com/cfmotoservermine/baseInfo?server_name=SMART", {
+        "Authorization": "Bearer " + accessToken,
+        "Content-Type": "application/json;charset=UTF-8",
+        "interfaceversion": "2",
+        ...signH0
+      });
+      if (infoRes && String(infoRes.code) === "10000" && infoRes.data) {
+        userId = String(infoRes.data.id || "");
+        userName = String(infoRes.data.nickName || "");
+      }
+    } catch(e) {}
+    // 追加/更新账号：同一 Token 或同一用户ID视为同一账号（刷新Token），否则新增
+    const list = getAccounts();
+    let replaced = false;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] && (String(list[i].token || "") === accessToken || (list[i].userId && userId && String(list[i].userId) === userId))) {
+        list[i].token = accessToken;
+        if (userId) list[i].userId = userId;
+        if (userName) list[i].userName = userName;
+        replaced = true;
+        break;
+      }
+    }
+    const newAcc = { userName: userName || phone, userId: userId, token: accessToken, barkKey: "", userAgent: "" };
+    if (!replaced) list.push(newAcc);
+    saveAccounts(list);
+    sendResp(200, { "Content-Type": "application/json" }, JSON.stringify({ ok: true, message: replaced ? "登录成功，已更新该账号" : "登录成功，已添加账号", account: newAcc }));
+    return;
+  }
+
   if (path === "/api/quick-save" || path === "/quick-save") {
     try {
       const u = new URL(url);
